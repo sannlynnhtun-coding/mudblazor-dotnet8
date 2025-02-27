@@ -1,0 +1,195 @@
+﻿@page "/blog"
+@inject IDialogService DialogService
+
+<MudContainer MaxWidth="MaxWidth.Large">
+	<MudGrid>
+		<!-- Create/Update Form -->
+		<MudItem xs="12" md="6">
+			<MudCard>
+				<MudCardHeader>
+					<CardHeaderContent>
+						<MudText Typo="Typo.h6">
+							@(editBlogId.HasValue ? "Edit" : "Create") Blog
+						</MudText>
+					</CardHeaderContent>
+				</MudCardHeader>
+				<MudCardContent>
+					<EditForm Model="newBlog" OnValidSubmit="HandleSubmit">
+						<DataAnnotationsValidator />
+						<MudForm>
+							<MudTextField @bind-Value="newBlog.Title"
+										  Label="Title"
+										  Variant="Variant.Outlined"
+										  Margin="Margin.Dense"
+										  Required="true"
+										  RequiredError="Title is required!"
+										  Class="mb-4" />
+
+							<MudTextField @bind-Value="newBlog.Content"
+										  Label="Content"
+										  Variant="Variant.Outlined"
+										  Margin="Margin.Dense"
+										  Lines="5"
+										  Required="true"
+										  RequiredError="Content is required!" />
+
+							<ValidationSummary Class="mt-4" />
+						</MudForm>
+						<MudCardActions>
+							<MudButton ButtonType="ButtonType.Submit"
+									   Variant="Variant.Filled"
+									   Color="Color.Primary"
+									   Class="mt-4">
+								@(editBlogId.HasValue ? "Update" : "Create")
+							</MudButton>
+							@if (editBlogId.HasValue)
+							{
+								<MudButton Variant="Variant.Filled"
+										   Color="Color.Default"
+										   Class="mt-4 ml-2"
+										   OnClick="CancelEdit">
+									Cancel
+								</MudButton>
+							}
+						</MudCardActions>
+					</EditForm>
+				</MudCardContent>
+			</MudCard>
+		</MudItem>
+
+		<!-- Blog List -->
+		<MudItem xs="12">
+			<MudCard>
+				<MudCardHeader>
+					<CardHeaderContent>
+						<MudText Typo="Typo.h6">Blog Posts</MudText>
+					</CardHeaderContent>
+				</MudCardHeader>
+				<MudCardContent>
+					@if (blogs.Count == 0)
+					{
+						<MudText>No blogs available.</MudText>
+					}
+					else
+					{
+						<MudTable Items="@blogs" Bordered="false" Dense="true" Hover="true" Striped="true">
+							<HeaderContent>
+								<MudTh>Title</MudTh>
+								<MudTh>Content</MudTh>
+								<MudTh>Created</MudTh>
+								<MudTh>Actions</MudTh>
+							</HeaderContent>
+							<RowTemplate>
+								<MudTd DataLabel="Title">@context.Title</MudTd>
+								<MudTd DataLabel="Content">@context.Content</MudTd>
+								<MudTd DataLabel="Created">@context.CreatedDate.ToString("MMM dd, yyyy")</MudTd>
+								<MudTd DataLabel="Actions">
+									<MudButton Size="Size.Small"
+											   Variant="Variant.Filled"
+											   Color="Color.Primary"
+											   OnClick="@(() => EditBlog(context.Id))">
+										Edit
+									</MudButton>
+									<MudButton Size="Size.Small"
+											   Variant="Variant.Filled"
+											   Color="Color.Error"
+											   Class="ml-2"
+											   OnClick="@(() => DeleteBlog(context.Id))">
+										Delete
+									</MudButton>
+								</MudTd>
+							</RowTemplate>
+						</MudTable>
+					}
+				</MudCardContent>
+			</MudCard>
+		</MudItem>
+	</MudGrid>
+</MudContainer>
+
+@code {
+	private List<Blog> blogs = new();
+	private Blog newBlog = new();
+	private int? editBlogId = null;
+
+	public class Blog
+	{
+		public int Id { get; set; }
+
+		[Required]
+		[StringLength(100, MinimumLength = 3)]
+		public string Title { get; set; } = string.Empty;
+
+		[Required]
+		[StringLength(1000, MinimumLength = 10)]
+		public string Content { get; set; } = string.Empty;
+
+		public DateTime CreatedDate { get; set; } = DateTime.Now;
+	}
+
+	protected override void OnInitialized()
+	{
+		blogs = new List<Blog>
+		{
+			new Blog { Id = 1, Title = "First Post", Content = "This is my first blog post content", CreatedDate = DateTime.Now.AddDays(-2) },
+			new Blog { Id = 2, Title = "Second Post", Content = "This is my second blog post content", CreatedDate = DateTime.Now.AddDays(-1) }
+		};
+	}
+
+	private void HandleSubmit()
+	{
+		if (editBlogId.HasValue)
+		{
+			var blogToUpdate = blogs.First(b => b.Id == editBlogId.Value);
+			blogToUpdate.Title = newBlog.Title;
+			blogToUpdate.Content = newBlog.Content;
+			editBlogId = null;
+		}
+		else
+		{
+			newBlog.Id = blogs.Any() ? blogs.Max(b => b.Id) + 1 : 1;
+			blogs.Add(newBlog);
+		}
+
+		newBlog = new Blog();
+		StateHasChanged();
+	}
+
+	private void EditBlog(int id)
+	{
+		var blogToEdit = blogs.First(b => b.Id == id);
+		newBlog = new Blog
+			{
+				Id = blogToEdit.Id,
+				Title = blogToEdit.Title,
+				Content = blogToEdit.Content,
+				CreatedDate = blogToEdit.CreatedDate
+			};
+		editBlogId = id;
+	}
+
+	private async Task DeleteBlog(int id)
+	{
+		var options = new DialogOptions { CloseOnEscapeKey = true };
+		var dialog = await DialogService.ShowAsync<ConfirmationDialog>("Confirm", 
+			new DialogParameters
+			{
+				["Message"] = "Do you really want to delete this?"
+			}, options);
+		var result = await dialog.Result;
+
+		if (!Convert.ToBoolean(result!.Data)) return;
+
+		blogs.RemoveAll(b => b.Id == id);
+		if (editBlogId == id)
+		{
+			CancelEdit();
+		}
+	}
+
+	private void CancelEdit()
+	{
+		newBlog = new Blog();
+		editBlogId = null;
+	}
+}

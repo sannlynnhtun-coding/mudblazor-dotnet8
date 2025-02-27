@@ -1,0 +1,16 @@
+﻿<MudDialog Title="Confirmation">
+    <DialogContent>
+        @Message
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Primary" OnClick="() => MudDialog.Close(true)">Yes</MudButton>
+        <MudButton Color="Color.Secondary" OnClick="() => MudDialog.Close(false)">No</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; }
+
+    [Parameter] public string Message { get; set; } = "Are you sure?";
+}
